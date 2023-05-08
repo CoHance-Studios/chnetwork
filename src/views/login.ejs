@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoHance Network - Login</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta name="clientkey" id="clientkey" value="<%= key %>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@100;200;300;400;500;600;700;800;900&family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!--<div id="g_id_onload"
+        data-client_id="405391324743-t2jfu5lnh9ibldgkan7b9ijr5eaimgmo.apps.googleusercontent.com"
+        data-auto_select="true"
+        data-callback="handleCredentialResponse">
+    </div>-->
+    <div class="page_wrapper">
+        <div class="login_wrapper">
+            <img src="./resources/media/img/ch.png" alt="">
+            <p>CoHance Network</p>
+            <div class="g_id_button">
+                <div id="g_id_onload"
+                    data-client_id="405391324743-t2jfu5lnh9ibldgkan7b9ijr5eaimgmo.apps.googleusercontent.com"
+                    data-context="signup"
+                    data-ux_mode="popup"
+                    data-callback="handleCredentialResponse"
+                    data-auto_prompt="false">
+                </div>
+        
+                <div class="g_id_signin"
+                    data-type="standard"
+                    data-shape="pill"
+                    data-theme="filled_blue"
+                    data-text="continue_with"
+                    data-size="medium"
+                    data-logo_alignment="left">
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+<script>
+    /*window.onload = function () {
+        google.accounts.id.initialize({
+          client_id: '405391324743-t2jfu5lnh9ibldgkan7b9ijr5eaimgmo.apps.googleusercontent.com',
+          callback: handleCredentialResponse
+        });
+        google.accounts.id.prompt();
+      };*/
+    //data-login_uri="https://accounts.google.com/o/oauth2/auth"
+    function handleCredentialResponse(res){
+        const payload = decodeJWTRes(res.credential);
+        setCookie("google_jwt", res.credential, 2);
+        ws.send(JSON.stringify({req:"login", payload:res.credential}));
+    }
+
+    function decodeJWTRes(data){
+        var tokens = data.split(".");
+        return JSON.parse(atob(tokens[1]));
+    }
+    const protocol = "ws";
+    const port = 8083;
+    const domain = "localhost";
+    const ws = new WebSocket(`${protocol}://${domain}:${port}`);
+    ws.addEventListener("open", ()=>{
+        ws.send(JSON.stringify({req:"auth", payload:document.getElementById("clientkey").getAttribute("value")}));
+    });
+
+    ws.addEventListener("message", (msg)=>{
+        procDict[JSON.parse(msg.data).req](JSON.parse(msg.data).payload);
+    })
+
+    const procDict = {
+        auth:function(payload){
+            console.log("Handshake completed.");
+            if(getCookie("google_jwt")){
+                ws.send(JSON.stringify({req:"login", payload:getCookie("google_jwt")}));
+            }
+        }
+    };
+
+    function setCookie(cname, cvalue, exhrs) {
+        const d = new Date();
+        d.setTime(d.getTime() + (exhrs*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+    function getCookie(cname) {
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(';');
+        for(let i = 0; i <ca.length; i++) {
+          let c = ca[i];
+          while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+          }
+          if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+          }
+        }
+        return "";
+      }
+</script>
+<style>
+    *{
+        color: white;
+        /*font-family: 'Lexend Deca', sans-serif;*/
+        font-family: 'Montserrat', sans-serif;
+    }
+    .login_wrapper p{
+        font-size: 25px;
+        color:rgb(223, 223, 223);
+        margin-top: 10px;
+    }
+    .login_wrapper img{
+        width: 50px;
+        margin-top: 10px;
+    }
+    .login_wrapper{
+        border-radius: 15px;
+        padding: 10px;
+        width: calc(100vw - 20px);
+        max-width: 300px;
+        background-color:#1a1a1a;
+        display: flex;
+        justify-content: space-around;
+        align-items:center;
+        flex-direction: column;
+    }
+    .page_wrapper{
+        width: 100vw;
+        height: 100vh;
+        left: 0;
+        top: 0;
+        position: fixed;
+        display: flex;
+        justify-content: center;
+        align-items:center;
+    }
+    body{
+        background-color: #292929;
+    }
+    .g_id_button{
+        margin-bottom: 10px;
+        width: 197px !important;
+        height: 34px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+</html>
