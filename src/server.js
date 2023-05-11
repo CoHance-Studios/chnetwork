@@ -1,4 +1,6 @@
 const express = require("express");
+const trader = require("./js/stock/trader");
+trader.start();
 const fs = require("fs");
 const app = express();
 const port = 80;
@@ -64,29 +66,59 @@ const con = mysql.createPool({
     database:"CoHanceNetwork",
     password:process.env.PASSWORD,
     user:process.env.sqlUSERNAME,
-    connectionLimit: 100
+    connectionLimit: 100,
+    port:3306
 });
+
 const procDict = {
     login: async (cred, ws)=>{
         const ticket = await verifyAuthToken(cred);
-        const payload = ticket.payload;
-        const name = payload.name;
-        const lname = payload.family_name;
-        const fname = payload.given_name;
-        const email = payload.email;
-        const everified = payload.email_verified;
-        const gp = payload.picture;
-        const iat = payload.iat;
-        const exp = payload.exp;
-        const jti = payload.jti;
-        const sub = payload.sub;
-        /*con.query("SELECT * FROM google_users WHERE email = '"+email+"';", (err, res)=>{
-            if(err) console.log(err);
-            if(res.length > 0){
-                
+        if(ticket.success){
+            const payload = ticket.payload;
+            const name = payload.name;
+            const lname = payload.family_name;
+            const fname = payload.given_name;
+            const email = payload.email;
+            const everified = payload.email_verified;
+            const gp = payload.picture;
+            const iat = payload.iat;
+            const exp = payload.exp;
+            const jti = payload.jti;
+            const sub = payload.sub;
+            function booltobin(bool){
+                return bool ? 1 : 0;
             }
-        });*/
-        console.log(exp);
+            con.query("SELECT * FROM google_users WHERE email = ?;", email, (err, res)=>{
+                if(err){
+                    console.log(err);
+                    ws.send(JSON.stringify({req:"login", payload:{success:false, reason:"sql"}}));
+                }else{
+                    if(res.length > 0){
+                        const sql = "UPDATE `CoHanceNetwork`.`google_users` SET `name` = ?, `first_name` = ?, `last_name` = ?, `email` = ?, `email_verified` = ?, `google_picture` = ?, `iat` = ?, `exp` = ?, `jti` = ?, `sub` = ? WHERE (`email` = ?);";
+                        con.query(sql, [name, fname, lname, email, everified, gp, iat, exp, jti, sub, email], (err, resu)=>{
+                            if(err){
+                                console.log(err);
+                                ws.send(JSON.stringify({req:"login", payload:{success:false, reason:"sql"}}));
+                            }else{
+                                ws.send(JSON.stringify({req:"login", payload:{success:true, mode:"login",user:{name, fname, lname, email, gp}}}));
+                            }
+                        });
+                    }else{
+                        var values = [[name, fname, lname, email, booltobin(everified), gp, "NULL", iat, exp, jti, sub]];
+                        con.query("INSERT INTO google_users (`name`, `first_name`, `last_name`, `email`, `email_verified`, `google_picture`, `custom_picture`, `iat`, `exp`, `jti`, `sub`) VALUES ?;", [values], (err, resu)=>{
+                            if(err){
+                                console.log(err);
+                                ws.send(JSON.stringify({req:"login", payload:{success:false, reason:"sql"}}));
+                            }else{
+                                ws.send(JSON.stringify({req:"login", payload:{success:true, mode:"register", user:{name, fname, lname, email, gp}}}));
+                            } 
+                        });
+                    }
+                }
+            });
+        }else{
+            ws.send(JSON.stringify({req:"login", payload:{success:false, reason:"sql"}}));
+        }
     }
 };
 /*eyJhbGciOiJSUzI1NiIsImtpZCI6Ijc3NzBiMDg1YmY2NDliNzI2YjM1NzQ3NjQwMzBlMWJkZTlhMTBhZTYiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJuYmYiOjE2ODM1MTA1NjIsImF1ZCI6IjQwNTM5MTMyNDc0My10MmpmdTVsbmg5aWJsZGdrYW43YjlpanI1ZWFpbWdtby5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbSIsInN1YiI6IjEwMDE4MzAzMTUyMDMwODgxMDU0MyIsImVtYWlsIjoiYWlkYW50YTAxQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhenAiOiI0MDUzOTEzMjQ3NDMtdDJqZnU1bG5oOWlibGRna2FuN2I5aWpyNWVhaW1nbW8uYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJuYW1lIjoiQWlkYW4gQW5kZXJzb24iLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUdObXl4YWFPTGt4LVJxaGlfa0NhWkVuTjk4U3FuY3Nqa2lUa3dOOHdhU3Zmdz1zOTYtYyIsImdpdmVuX25hbWUiOiJBaWRhbiIsImZhbWlseV9uYW1lIjoiQW5kZXJzb24iLCJpYXQiOjE2ODM1MTA4NjIsImV4cCI6MTY4MzUxNDQ2MiwianRpIjoiYzFjOWIzNmI4ZGQ4YjU2M2UxNDJjYmVlMmIxOTFhODNlMmJmNjg2NiJ9.c56VmEcfUvwg7KLYBHgc9rIzY3_1NhYr9k6halEzdaE_q3O9wlNRmBQfeYcHwRpedqeXqf128ZbscwyrWBLLC1qfJTnOvXHuIfczEL8NcbbEhaDqf3HPEkUuPgwuq24nW1081VxNgP-6NjlBUVrj1spr9Alh7Ja_ZJLmlhflcMRhxTs0lkDyxUa92flm_ScpIVI97L5O35t1w4o9IWr6s5JnW9jAqtfO4AIIIHV1fpI51XlcaU-7SkGBg7yJDu4lUgZGE2crQ31Meoc2ZIEUnnNnhvTnNszQRZaYpXGKvbSUQF3pO8HXUwI8KOfocVQoL7M8U0OR23R6Ej9_hiVNgA*/
@@ -106,6 +138,14 @@ app.get("/", (req, res)=>{
     let key = generateRandomKey();
     keys.push(key);
     res.render("../src/views/login.ejs", {
+        key
+    });
+});
+
+app.get("/home", (req, res)=>{
+    let key = generateRandomKey();
+    keys.push(key);
+    res.render("../src/views/home.ejs", {
         key
     });
 });
@@ -131,12 +171,15 @@ async function verifyAuthToken(token){
             audience:"405391324743-t2jfu5lnh9ibldgkan7b9ijr5eaimgmo.apps.googleusercontent.com",
             idToken:token
         });
-        if(ticket.name){
+        if(ticket.payload.name){
+            
             ticket.success = true;
         }else{
+            
             ticket.success = false;
         }
-    }catch{
+    }catch(e){
+        
         ticket.success = false;
     }
     

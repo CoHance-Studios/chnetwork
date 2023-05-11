@@ -40,12 +40,14 @@
                     data-logo_alignment="left">
                 </div>
             </div>
+            <p class="error"></p>
         </div>
     </div>
 </body>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://apis.google.com/js/platform.js" async defer></script>
 <script>
+    let sentReal = false;
     /*window.onload = function () {
         google.accounts.id.initialize({
           client_id: '405391324743-t2jfu5lnh9ibldgkan7b9ijr5eaimgmo.apps.googleusercontent.com',
@@ -57,6 +59,7 @@
     function handleCredentialResponse(res){
         const payload = decodeJWTRes(res.credential);
         setCookie("google_jwt", res.credential, 2);
+        sentReal = true;
         ws.send(JSON.stringify({req:"login", payload:res.credential}));
     }
 
@@ -81,6 +84,17 @@
             console.log("Handshake completed.");
             if(getCookie("google_jwt")){
                 ws.send(JSON.stringify({req:"login", payload:getCookie("google_jwt")}));
+            }
+        },
+        login:function(payload){
+            if(payload.success){
+                document.querySelector(".error").style.display = "none";
+                document.location = "./home"
+            }else if(sentReal){
+                document.querySelector(".error").style.display = "inline";
+                document.querySelector(".error").innerHTML = "Error.";
+            }else{
+                setCookie("google_jwt", "", 0.0000001);
             }
         }
     };
@@ -108,6 +122,12 @@
       }
 </script>
 <style>
+    .error{
+        display: none;
+        font-size: 18px !important;
+        color:red !important;
+        margin-bottom: 10px;
+    }
     *{
         color: white;
         /*font-family: 'Lexend Deca', sans-serif;*/

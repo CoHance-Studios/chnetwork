@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoHance Network - Login</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta name="clientkey" id="clientkey" value="<%= key %>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <meta name="referrer" content="no-referrer" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@100;200;300;400;500;600;700;800;900&family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <img src="" alt="" id="pfp">
+        <div class="logout">
+            <button>Logout</button>
+        </div>
+    </div>
+</body>
+<script>
+    function onLogin(){
+        document.getElementById("pfp").src = pfp;
+    }
+    document.getElementById("pfp").addEventListener("click", ()=>{
+        document.querySelector(".logout").style.display = "flex";
+    });
+    document.querySelector(".logout button").addEventListener("click", ()=>{
+        setCookie("google_jwt", "", 0.000000001);
+        document.location.reload();
+    })
+</script>
+<style>
+    .logout button{
+        width: 60px;
+        outline: none;
+        margin: 20px;
+        border-radius:10px;
+        background-color:#585858;
+        border:none;
+        height: 25px;
+        color:white;
+        cursor: pointer;
+    }
+    .logout{
+        display: none;
+        justify-content: center;
+        align-items:center;
+        border-radius:15px;
+        position: absolute;
+        right: 0;
+        top: 70px;
+        width: 100px;
+        background-color:rgb(19, 19, 19);
+        height: auto;
+    }
+    .header{
+        position: absolute;
+        left: 0;
+        height: 75px;
+        width: 100vw;
+        top: 0;
+        background-color:#1a1a1a;
+        display: flex;
+        align-items:center;
+    }
+    body{
+        background-color:#292929;
+    }
+    #pfp{
+        cursor:pointer;
+        width: 55px;
+        position: absolute;
+        right:10px;
+        border-radius:100px;
+        border:rgb(165, 165, 165) 2px solid;
+    }
+</style>
+<script>
+    
+    let name;
+    let fname;
+    let lname; 
+    let pfp;
+    let email;
+
+    function handleCredentialResponse(res){
+        setCookie("google_jwt", res.credential, 2);
+        sentReal = true;
+        ws.send(JSON.stringify({req:"login", payload:res.credential}));
+    }
+    const protocol = "ws";
+    const port = 8083;
+    const domain = "localhost";
+    const ws = new WebSocket(`${protocol}://${domain}:${port}`);
+    ws.addEventListener("open", ()=>{
+        ws.send(JSON.stringify({req:"auth", payload:document.getElementById("clientkey").getAttribute("value")}));
+    });
+
+    ws.addEventListener("message", (msg)=>{
+        procDict[JSON.parse(msg.data).req](JSON.parse(msg.data).payload);
+    })
+
+    const procDict = {
+        auth:function(payload){
+            console.log("Handshake completed.");
+            if(getCookie("google_jwt")){
+                ws.send(JSON.stringify({req:"login", payload:getCookie("google_jwt")}));
+            }else{
+                window.location.replace("../");
+            }
+        },
+        login:function(payload){
+            if(payload.success){
+                console.log("login successful!");
+                lname = payload.user.lname;
+                pfp = payload.user.gp;
+                fname = payload.user.fname;
+                email = payload.user.email;
+                name = payload.user.name;
+                onLogin();
+            }else{
+                setCookie("google_jwt", "", 0.0000001);
+                window.location.replace("../");
+            }
+        }
+    };
+
+    function setCookie(cname, cvalue, exhrs) {
+        const d = new Date();
+        d.setTime(d.getTime() + (exhrs*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+    function getCookie(cname) {
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(';');
+        for(let i = 0; i <ca.length; i++) {
+          let c = ca[i];
+          while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+          }
+          if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+          }
+        }
+        return "";
+      }
+</script>
+</html>
