@@ -16,6 +16,7 @@
     <div class="header">
         <img src="" alt="" id="pfp">
         <div class="logout">
+            <p>Your Account</p>
             <button>Logout</button>
         </div>
     </div>
@@ -26,17 +27,31 @@
     }
     document.getElementById("pfp").addEventListener("click", ()=>{
         document.querySelector(".logout").style.display = "flex";
+        tempLoginOpen = true;
+        
     });
+    document.addEventListener("click", (e)=>{
+        if((!(e.composedPath().includes(document.querySelector(".logout"))||e.composedPath().includes(document.querySelector("#pfp")))) && tempLoginOpen){
+            tempLoginOpen = false;
+            document.querySelector(".logout").style.display = "none";
+        }
+    })
+    let tempLoginOpen = false;
     document.querySelector(".logout button").addEventListener("click", ()=>{
         setCookie("google_jwt", "", 0.000000001);
+        
         document.location.reload();
-    })
+    });
 </script>
 <style>
+    *{
+        font-family:"Montserrat", sans-serif;
+    }
     .logout button{
         width: 60px;
         outline: none;
         margin: 20px;
+        margin-top: 10px;
         border-radius:10px;
         background-color:#585858;
         border:none;
@@ -44,7 +59,14 @@
         color:white;
         cursor: pointer;
     }
+    .logout p{
+        padding:0 10px;
+        text-align: center;
+        margin-bottom: 5px;
+    }
     .logout{
+        color:white;
+        flex-direction: column;
         display: none;
         justify-content: center;
         align-items:center;
@@ -52,8 +74,8 @@
         position: absolute;
         right: 0;
         top: 70px;
-        width: 100px;
-        background-color:rgb(19, 19, 19);
+        width: auto;
+        background-color:rgba(19, 19, 19, 0.596);
         height: auto;
     }
     .header{
