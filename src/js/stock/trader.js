@@ -2,6 +2,7 @@ const axios = require("axios");
 let dt = 60000;
 let currentDay = new Date().getDate();
 let history = {};
+let money = 112.589;
 
 exports.start = ()=>{
     console.log("Trader started.");
@@ -16,30 +17,49 @@ async function startloop(){
     let res = await train("HCDI",6);
     let trendnum = res.trendnum;
     let trendsup = res.trendsup;
-    let money = res.money;
     let amtin = 0;
     let prevPrice = await getPrice("HCDI");
     console.log("Start: "+money)
     let currentTrend = res.currentTrend;
- 
+    let hasBeenNoTrade = false;
     let justBought = false;
+    let trendThreshold = res.trendThreshold;
+    
     setTimeout(loop, dt);
+    let trendsInactive = res.trendsInactive;
     async function loop(){
         console.log("New Loop:");
         let hour = new Date().getHours();
         let min = new Date().getMinutes();
         let day = new Date().getDay();
-        if(day != 0 && day != 6 && (hour < 17 && (hour > 10 || (hour == 10 && min > 30)))){
+        if(day != 0 && day != 6 && (hour < 15 && (hour > 8 || (hour == 8 && min > 30)))){
+            hasBeenNoTrade = true;
             const price = await getPrice("HCDI");
             console.log("Difference: " + (price - prevPrice));
-            if(price == prevPrice){
+            if(false){
                 console.log("Same price.");
+                boughtin = false;
+                if(!boughtin && (justBought || amtin != 0)){
+                    console.log("Selling everything.")
+                    justBought = false;
+                    money += price*amtin;
+                    amtin = 0;
+                }
             }else{
                 let str = "";
                 if(price == prevPrice){
                     str=("level");
                 }else if(price > prevPrice){
                     str=("up");
+                    for(let t = 0; t < trendsInactive.length; t++){
+                        if(JSON.stringify(currentTrend) == JSON.stringify(trendsInactive[t].trend)){
+                            trendsInactive[t].timesseen++;
+                            if(trendsInactive[t].timesseen > trendThreshold - 1){
+                                trendsup.push(trendsInactive[t]);
+                                trendsInactive.splice(t, 1);
+                            }
+                        }
+                    }
                 }else{
                     str=("down");
                 }
@@ -57,7 +77,7 @@ async function startloop(){
                 }
                 let boughtin = false;
                 for(let t = 0; t < trendsup.length; t++){
-                    if(JSON.stringify(currentTrend) == JSON.stringify(trendsup[t].trend)){
+                    if(JSON.stringify(currentTrend) == JSON.stringify(trendsup[t].trend) && !justBought){
                         justBought = true;
                         boughtin = true;
                         //amtin += trendsup[t].timesseen;
@@ -67,7 +87,8 @@ async function startloop(){
                         
                     }
                 }
-                if(!boughtin && justBought){
+                
+                if(!boughtin && (justBought || amtin != 0)){
                     console.log("Selling everything.")
                     justBought = false;
                     money += price*amtin;
@@ -78,7 +99,16 @@ async function startloop(){
             console.log("Current money: "+money + "\n");
             
         }else{
-            console.log("Trading not open.");
+            console.log("Trading not open." + " Current money: " +money);
+            if(hasBeenNoTrade){
+                hasBeenNoTrade = false;
+                const price = await getPrice("HCDI");
+                console.log("Selling everything.")
+                justBought = false;
+                money += price*amtin;
+                amtin = 0;
+                console.log("Ending money: " + money);
+            }
         }
         if(currentDay != new Date().getDate()){
             currentDay = new Date().getDate();
@@ -191,21 +221,25 @@ function train(symbol, n){
     trendsdown = trendsdown.filter((i)=>{
         return i.timesseen > 2;
     });
-    trends = trends.filter((i)=>{
-        return i.timesseen > 2;
+    const trendThreshold = 3;
+    let trendsInactive = trends.filter((i)=>{
+        return i.timesseen < trendThreshold && i.timesseen > 1;
     });
-    const res = emulate(trends, trendsdown, history[symbol], 100, n);
-    let money = res.money;
+    trends = trends.filter((i)=>{
+        return i.timesseen > trendThreshold - 1;
+    });
+    const res = emulate(trends, trendsdown, history[symbol], money, n);
     let currentTrend = res.currentTrend;
-    const retval = {money, trendsup:trends, trendsdown, currentTrend, trendnum:n,data:history[symbol]};
+    const retval = {money, trendsup:trends, trendsdown, currentTrend, trendnum:n,data:history[symbol], trendsInactive, trendThreshold};
     return retval;
 }
 
 function emulate(trendsup, trendsdown, data, startmoney, trendnum){
-    let money = startmoney;
+    let moneye = money;
     let currentTrend = [];
     let amtin = 0;
     let justBought = false;
+    let pricep = 0;
     for(let i = 10; i < data.length; i++){
         let price = data[i];
         let prevprice = data[i - 1];
@@ -235,18 +269,21 @@ function emulate(trendsup, trendsdown, data, startmoney, trendnum){
                 justBought = true;
                 boughtin = true;
                 //amtin += trendsup[t].timesseen;
-                amtin += Math.floor(money/data[i]);
-                money -= data[i]*Math.floor(money/data[i]);
+                amtin += Math.floor(moneye/data[i]);
+                moneye -= data[i]*Math.floor(moneye/data[i]);
                 
             }
         }
         if(!boughtin && justBought){
             justBought = false;
-            money += data[i]*amtin;
+            moneye += data[i]*amtin;
             amtin = 0;
         }
-
+        pricep = data[i];
     }
+    moneye += pricep*amtin;
+    amtin = 0;
+    console.log("Emulated: "+moneye);
     return {money, currentTrend};
 }
 
